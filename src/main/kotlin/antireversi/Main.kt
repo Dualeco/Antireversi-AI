@@ -9,8 +9,8 @@ import java.lang.Exception
 
 fun main(args: Array<String>) {
     val cmdWorker = CommandLineWorker()
-    //cmdWorker.runGame()
-    runTesting()
+    cmdWorker.runGame()
+    //runTesting()
 }
 
 fun runTesting() {
