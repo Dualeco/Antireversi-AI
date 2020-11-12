@@ -19,10 +19,11 @@ fun runTesting() {
     val blackHoleY = 4.toByte()
 
     repeat(100) {
-        try {
+        val board = BoardImpl(blackHoleX, blackHoleY)
+        val state = BoardImpl.BoardStateImpl(blackHoleX, blackHoleY)
 
-            val board = BoardImpl(blackHoleX, blackHoleY)
-            val state = BoardImpl.BoardStateImpl(blackHoleX, blackHoleY)
+        println("Attempt $it")
+        try {
 
             var turn = 0
             fun isBlackTurn() = turn % 2 == 0
@@ -48,22 +49,29 @@ fun runTesting() {
             }
             state.display()
 
-            val score = state.getScore()
+            val score = state.getScore(weighed = false)
             val scoreB = if (isBlackTurn()) score.x else score.y
             val scoreW = if (isBlackTurn()) score.y else score.x
 
             val str = when {
-                scoreB == scoreW -> "Draw"
-                scoreB < scoreW -> "B won".also { list += 'B' }
-                else -> "W won".also { list += 'W' }
+                scoreB < scoreW -> {
+                    "B won | Score B: $scoreB | Score W: $scoreW ".also { list += 'B' }
+                }
+                else -> {
+                    "W won | Score B: $scoreB | Score W: $scoreW ".also { list += 'W' }
+                }
             }
             println(
                 "${
                     (list.count { it == 'B' }.toFloat() / list.size) * 100
                 }%, ${list.count { it == 'B' }} / ${list.count { it == 'W' }}, $str"
             )
+            println()
+            println()
         } catch (e: Exception) {
-
+            println("Error: ${e.message}")
+        } finally {
+            //state.display()
         }
     }
 }

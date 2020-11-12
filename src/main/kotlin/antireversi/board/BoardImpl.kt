@@ -32,7 +32,7 @@ class BoardImpl(private val blackHoleX: Byte, private val blackHoleY: Byte) : Bo
             for (j in 0 until 8) {
                 val i = i.toByte()
                 val j = j.toByte()
-                if (checkPoint(i, j) && state.get(i, j) == Board.BoardState.EMPTY_POINT) {
+                if (checkPoint(i, j) && state.get(i, j) == EMPTY_POINT) {
                     emptyPoints++
                     for (k in 0 until 8)
                         runSearch(state, i, j, k, turns)
@@ -52,23 +52,23 @@ class BoardImpl(private val blackHoleX: Byte, private val blackHoleY: Byte) : Bo
     }
 
     override fun makeTurn(state: Board.BoardState, x: Byte, y: Byte) {
-        if (state.get(x, y) != Board.BoardState.EMPTY_POINT) return
+        if (state.get(x, y) != EMPTY_POINT) return
         state.takePoint(x, y)
         for (k in 0 until 8)
-            runOccupationSearch(state, x.toByte(), y.toByte(), k)
+            runOccupationSearch(state, x, y, k)
     }
 
     private fun runOccupationSearch(state: Board.BoardState, x: Byte, y: Byte, dir: Int) {
         var posX = (x + dirV[dir].x).toByte()
         var posY = (y + dirV[dir].y).toByte()
-        if (!checkPoint(posX, posY) || state.get(posX.toByte(), posY.toByte()) != Board.BoardState.ENEMY_POINT) return
+        if (!checkPoint(posX, posY) || state.get(posX, posY) != ENEMY_POINT) return
         do {
             posX = (posX + dirV[dir].x).toByte()
             posY = (posY + dirV[dir].y).toByte()
         } while (checkPoint(posX, posY) &&
-            state.get(posX, posY) == Board.BoardState.ENEMY_POINT
+            state.get(posX, posY) == ENEMY_POINT
         )
-        if (checkPoint(posX, posY) && state.get(posX, posY) == Board.BoardState.MY_POINT) {
+        if (checkPoint(posX, posY) && state.get(posX, posY) == MY_POINT) {
             occupate(state, x, y, dir)
         }
     }
@@ -81,21 +81,21 @@ class BoardImpl(private val blackHoleX: Byte, private val blackHoleY: Byte) : Bo
             posX = (posX + dirV[dir].x).toByte()
             posY = (posY + dirV[dir].y).toByte()
         } while (checkPoint(posX, posY) &&
-            state.get(posX, posY) == Board.BoardState.ENEMY_POINT
+            state.get(posX, posY) == ENEMY_POINT
         )
     }
 
     private fun runSearch(state: Board.BoardState, x: Byte, y: Byte, dir: Int, turns: MutableList<Board.Point>) {
         var posX = (x + dirV[dir].x).toByte()
         var posY = (y + dirV[dir].y).toByte()
-        if (!checkPoint(posX, posY) || state.get(posX, posY) != Board.BoardState.ENEMY_POINT) return
+        if (!checkPoint(posX, posY) || state.get(posX, posY) != ENEMY_POINT) return
         do {
             posX = (posX + dirV[dir].x).toByte()
             posY = (posY + dirV[dir].y).toByte()
         } while (checkPoint(posX, posY) &&
-            state.get(posX, posY) == Board.BoardState.ENEMY_POINT
+            state.get(posX, posY) == ENEMY_POINT
         )
-        if (checkPoint(posX, posY) && state.get(posX, posY) == Board.BoardState.MY_POINT) {
+        if (checkPoint(posX, posY) && state.get(posX, posY) == MY_POINT) {
             turns.add(Board.Point(x, y))
         }
     }
@@ -115,14 +115,10 @@ class BoardImpl(private val blackHoleX: Byte, private val blackHoleY: Byte) : Bo
 
         companion object {
 
-            private const val C = 6 //6
-            private const val B = 3 //4
-            private const val G = 1 //1
+            private const val C = 7 //6
+            private const val B = 4 //4
             private const val R = 2 //2
-
-            private const val BACK_PENALTIES = 0.3 //0.3
-
-            private val INSIDE_WIN_PER_THRESHOLD = arrayOf(0, 0, 0, 0, 0, 0, 0, 2, 3)
+            private const val G = 1 //1
 
             private val PENALTIES = arrayOf(
                 //            0  1  2  3  4  5  6  7
@@ -155,9 +151,9 @@ class BoardImpl(private val blackHoleX: Byte, private val blackHoleY: Byte) : Bo
             else -> EMPTY_POINT
         }
 
-        override fun getScore(): Board.Point {
-            var b = 0.toByte()
-            var w = 0.toByte()
+        override fun getScore(weighed: Boolean): Board.Score {
+            var b = 0.toShort()
+            var w = 0.toShort()
             for (i in 0 until 8)
                 for (j in 0 until 8) {
                     var score = PENALTIES[i][j]
@@ -185,15 +181,21 @@ class BoardImpl(private val blackHoleX: Byte, private val blackHoleY: Byte) : Bo
 //                    }
 
                     if (get(matrix, i, j) > 0) {
-                        b = (b + score).toByte()
-                        w = (w - (BACK_PENALTIES * score)).toInt().toByte()
+                        if (weighed) {
+                            b = (b + score).toShort()
+                        } else {
+                            b++
+                        }
                     }
                     if (get(enemyMatrix, i, j) > 0) {
-                        w = (w + score).toByte()
-                        b = (b - (BACK_PENALTIES * score)).toInt().toByte()
+                        if (weighed) {
+                            w = (w + score).toShort()
+                        } else {
+                            w++
+                        }
                     }
                 }
-            return Board.Point(maxOf(b, 0), maxOf(w, 0))
+            return Board.Score(maxOf(b, 0), maxOf(w, 0))
         }
 
         override fun inverseState() {

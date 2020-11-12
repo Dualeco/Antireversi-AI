@@ -5,6 +5,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.experimental.or
+import kotlin.math.min
 
 class Bot(
     private val board: Board,
@@ -29,18 +31,25 @@ class Bot(
                 availableTurns[0]
             }
             else -> {
+                var minEvaluation = Short.MAX_VALUE
+                var minIndex = -1
                 // Evaluate turns using minimax
-                val evaluations = ByteArray(availableTurns.size) {
+                val evaluations = ShortArray(availableTurns.size) {
                     val turn = availableTurns[it]
-                    evaluateTurn(
+                    val evaluation = evaluateTurn(
                         turn.x,
                         turn.y,
                         (recDepth - 1).toByte(),
                         state = state.copyState(),
-                        min = Byte.MAX_VALUE,
-                        max = Byte.MIN_VALUE,
-                        turnsPosition = it.toByte()
+                        min = minEvaluation,
+                        max = Short.MIN_VALUE,
+                        minEvaluation
                     )
+                    if (evaluation < minEvaluation) {
+                        minEvaluation = evaluation
+                        minIndex = it
+                    }
+                    evaluation
                 }
 
                 availableTurns[evaluations.indexOfMin()]
@@ -59,10 +68,10 @@ class Bot(
         y: Byte,
         depth: Byte,
         state: Board.BoardState, // state.copyState()
-        min: Byte,
-        max: Byte,
-        turnsPosition: Byte
-    ): Byte {
+        min: Short,
+        max: Short,
+        minEvaluation: Short
+    ): Short {
         board.makeTurn(state, x, y)
 
         state.inverseState()
@@ -72,7 +81,7 @@ class Bot(
             state,
             min,
             max,
-            turnsPosition
+            minEvaluation
         )
     }
 
@@ -82,34 +91,32 @@ class Bot(
     fun minimax(
         depth: Byte,
         state: Board.BoardState,
-        min: Byte,
-        max: Byte,
-        turnsPosition: Byte
-    ): Byte {
+        min: Short,
+        max: Short,
+        minEvaluation: Short
+    ): Short {
         val availableTurns: List<Board.Point>? = board.getAvailableTurns(state)
         when {
             availableTurns == null || depth == 0.toByte() -> {
-                val score = state.getScore()
-                return if ((recDepth - depth) % 2 == 0) score.x.toByte() else score.y.toByte()
+                val score = state.getScore(weighed = true)
+                return if ((recDepth - depth) % 2 == 0) score.x else score.y
+            }
+            availableTurns.isEmpty() -> {
+                val score = state.getScore(weighed = true)
+                return if ((recDepth - depth) % 2 == 1) score.x else score.y
             }
             (recDepth - depth) % 2 == 0 -> {
-                val score = state.getScore()
-                if (score.y - score.x < minValue) {
-                    minValue = score.y - score.x
-                    minValuePosition = turnsPosition
-                }
-
-                var maxEval = Byte.MIN_VALUE
+                var maxEval = Short.MIN_VALUE
                 for (i in availableTurns.indices) {
                     val turn = availableTurns[i]
                     val evaluation = evaluateTurn(
-                        turn.x.toByte(),
-                        turn.y.toByte(),
+                        turn.x,
+                        turn.y,
                         (depth - 1).toByte(),
                         state = state.copyState(),
                         min = min,
                         max = max,
-                        turnsPosition = turnsPosition
+                        minEvaluation = minEvaluation
                     )
                     maxEval = maxOf(maxEval, evaluation)
                     val newMax = maxOf(max, maxEval)
@@ -120,23 +127,17 @@ class Bot(
                 return maxEval
             }
             (recDepth - depth) % 2 == 1 -> {
-                val score = state.getScore()
-                if (score.x - score.y < minValue) {
-                    minValue = score.x - score.y
-                    minValuePosition = turnsPosition
-                }
-
-                var minEval = Byte.MAX_VALUE
+                var minEval = Short.MAX_VALUE
                 for (i in availableTurns.indices) {
                     val turn = availableTurns[i]
                     val evaluation = evaluateTurn(
-                        turn.x.toByte(),
-                        turn.y.toByte(),
+                        turn.x,
+                        turn.y,
                         (depth - 1).toByte(),
                         state = state.copyState(),
                         min = min,
                         max = max,
-                        turnsPosition = turnsPosition
+                        minEvaluation = minEvaluation
                     )
                     minEval = minOf(minEval, evaluation)
                     val newMin = minOf(min, minEval)
@@ -153,13 +154,13 @@ class Bot(
     /**
      * Find the index of the minimal element of the array
      */
-    private fun ByteArray.indexOfMin(): Int {
+    private fun ShortArray.indexOfMin(): Int {
         var minI = if (size == 0) {
             -1
         } else {
             0
         }
-        var min = Byte.MAX_VALUE
+        var min = Short.MAX_VALUE
 
         forEachIndexed { i, elem ->
             if (elem < min) {
